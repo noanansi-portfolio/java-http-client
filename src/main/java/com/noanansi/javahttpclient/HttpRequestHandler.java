@@ -6,6 +6,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -38,6 +39,7 @@ public class HttpRequestHandler {
         .uri(URI.create(url))
         .headers(extractHeaders(headers))
         .POST(HttpRequest.BodyPublishers.ofString(body))
+        .timeout(Duration.ofSeconds(3))
         .build();
     try {
       final var response = client.send(request, HttpResponse.BodyHandlers.ofString());
