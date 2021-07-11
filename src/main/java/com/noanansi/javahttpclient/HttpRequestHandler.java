@@ -1,6 +1,10 @@
 package com.noanansi.javahttpclient;
 
+import static java.time.temporal.ChronoUnit.SECONDS;
+
 import com.google.gson.Gson;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -18,6 +22,17 @@ public class HttpRequestHandler {
 
   private static final Gson gson = new Gson();
   private static final HttpClient client = HttpClient.newHttpClient();
+
+  private static final RetryConfig retryConfig;
+  private static final Retry retry;
+
+  static {
+    retryConfig = RetryConfig.custom()
+        .maxAttempts(3)
+        .waitDuration(Duration.of(2, SECONDS))
+        .build();
+    retry = Retry.of("requestPost", retryConfig);
+  }
 
   private HttpRequestHandler() {
   }
@@ -41,8 +56,10 @@ public class HttpRequestHandler {
         .POST(HttpRequest.BodyPublishers.ofString(body))
         .timeout(Duration.ofSeconds(3))
         .build();
+    final var retryingHttpPostRequest = Retry.decorateCheckedSupplier(retry,
+        () -> client.send(request, HttpResponse.BodyHandlers.ofString()));
     try {
-      final var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+      final var response = retryingHttpPostRequest.apply();
       return gson.fromJson(response.body(), responseType);
     } catch (IOException e) {
       e.printStackTrace();
@@ -50,6 +67,9 @@ public class HttpRequestHandler {
     } catch (InterruptedException e) {
       e.printStackTrace();
       throw new RuntimeException(e);
+    } catch (Throwable throwable) {
+      throwable.printStackTrace();
+      throw new RuntimeException(throwable);
     }
   }
 
