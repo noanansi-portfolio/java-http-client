@@ -48,16 +48,15 @@ public class HttpRequestHandler {
    * @param <T>          Class of the expected response type
    * @return Response body
    */
-  public static <T> T requestPost(final String url, final Map<String, String> headers,
-                                  final String body, final Class<T> responseType) {
+  public static <T> HttpResult<T> requestPost(final String url, final Map<String, String> headers,
+                                              final String body, final Class<T> responseType) {
     final var request = HttpRequest.newBuilder()
         .uri(URI.create(url))
         .headers(extractHeaders(headers))
         .POST(HttpRequest.BodyPublishers.ofString(body))
         .timeout(Duration.ofSeconds(3))
         .build();
-    final var response = retry.executeSupplier(() -> call(request));
-    return gson.fromJson(response.body(), responseType);
+    return retry.executeSupplier(() -> call(request, responseType));
   }
 
   private static String[] extractHeaders(final Map<String, String> headers) {
@@ -70,14 +69,24 @@ public class HttpRequestHandler {
     return headerList.toArray(new String[] {});
   }
 
-  private static HttpResponse<String> call(HttpRequest request) {
+  private static <T> HttpResult<T> call(HttpRequest request, Class<T> responseType) {
     try {
-      return client.send(request, HttpResponse.BodyHandlers.ofString());
+      final var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+      if (isClientError(response.statusCode())) {
+        return HttpResult.failed(new HttpClientException(request));
+      }
+      final var responseBody = response.body();
+      final var result = gson.fromJson(responseBody, responseType);
+      return HttpResult.success(result);
     } catch (IOException e) {
       throw new RuntimeException(e);
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private static boolean isClientError(int statusCode) {
+    return statusCode >= 400 && statusCode < 500;
   }
 
 }

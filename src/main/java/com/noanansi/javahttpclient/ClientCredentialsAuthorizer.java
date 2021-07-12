@@ -3,6 +3,7 @@ package com.noanansi.javahttpclient;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Handle Auth0 authorization using client credentials.
@@ -25,11 +26,13 @@ public class ClientCredentialsAuthorizer {
   /**
    * Get the access token, its type and expiration time.
    */
-  public AuthCredential getAccess() {
+  public Optional<AuthCredential> getAccess() {
     final var body = getBody();
     final var tokenUrl = authUrl + "/oauth/token";
     final var headers = Map.of("Content-Type", "application/x-www-form-urlencoded");
-    return HttpRequestHandler.requestPost(tokenUrl, headers, body, AuthCredential.class);
+    final var result =
+        HttpRequestHandler.requestPost(tokenUrl, headers, body, AuthCredential.class);
+    return result.getPayload();
   }
 
   private String getBody() {
