@@ -56,21 +56,8 @@ public class HttpRequestHandler {
         .POST(HttpRequest.BodyPublishers.ofString(body))
         .timeout(Duration.ofSeconds(3))
         .build();
-    final var retryingHttpPostRequest = Retry.decorateCheckedSupplier(retry,
-        () -> client.send(request, HttpResponse.BodyHandlers.ofString()));
-    try {
-      final var response = retryingHttpPostRequest.apply();
-      return gson.fromJson(response.body(), responseType);
-    } catch (IOException e) {
-      e.printStackTrace();
-      throw new RuntimeException(e);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-      throw new RuntimeException(e);
-    } catch (Throwable throwable) {
-      throwable.printStackTrace();
-      throw new RuntimeException(throwable);
-    }
+    final var response = retry.executeSupplier(() -> call(request));
+    return gson.fromJson(response.body(), responseType);
   }
 
   private static String[] extractHeaders(final Map<String, String> headers) {
@@ -81,6 +68,16 @@ public class HttpRequestHandler {
       headerList.add(header.getValue());
     });
     return headerList.toArray(new String[] {});
+  }
+
+  private static HttpResponse<String> call(HttpRequest request) {
+    try {
+      return client.send(request, HttpResponse.BodyHandlers.ofString());
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
   }
 
 }
