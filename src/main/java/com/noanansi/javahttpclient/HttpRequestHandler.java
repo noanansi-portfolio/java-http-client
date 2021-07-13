@@ -1,8 +1,7 @@
 package com.noanansi.javahttpclient;
 
-import static java.time.temporal.ChronoUnit.SECONDS;
-
 import com.google.gson.Gson;
+import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import java.io.IOException;
@@ -27,9 +26,12 @@ public class HttpRequestHandler {
   private static final Retry retry;
 
   static {
+    final var maxRetries = Integer.valueOf(System.getenv("MAX_RETRIES"));
+    final var randomInterval = Integer.valueOf(System.getenv("RANDOM_INTERVAL"));
     retryConfig = RetryConfig.custom()
-        .maxAttempts(3)
-        .waitDuration(Duration.of(2, SECONDS))
+        .maxAttempts(maxRetries)
+        .intervalFunction(IntervalFunction.ofRandomized(Duration.ofSeconds(randomInterval),
+            0.5))
         .build();
     retry = Retry.of("requestPost", retryConfig);
   }
